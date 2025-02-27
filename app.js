@@ -1,50 +1,95 @@
 const fs = require("fs");
+const { ethers } = require("ethers");
 const UniswapBot = require("./src/routers/uniswap");
+const AprioriBot = require("./src/routers/apriori");
+const RubicBot = require("./src/routers/rubic");
+const MonorailBot = require("./src/routers/monorail");
 
 const config = JSON.parse(fs.readFileSync("config.json", "utf-8"));
+const bots = [UniswapBot, AprioriBot, RubicBot];
+const MIN_BALANCE_MON = ethers.utils.parseEther("0.05");
+const RPC_URL = "https://testnet-rpc.monorail.xyz";
+const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+
+const transactionCount = {};
+config.accounts.forEach((account) => {
+  transactionCount[account.privateKey] = { maxTx: account.maxTx || 25 };
+  bots.forEach((Bot) => {
+    transactionCount[account.privateKey][Bot.name] = 0;
+  });
+});
 
 function getRandomAmount() {
-  return (Math.random() * (0.01 - 0.001) + 0.001).toFixed(6); // Acak antara 0.001 - 0.01 ETH
+  return (Math.random() * (0.01 - 0.001) + 0.001).toFixed(6); // Acak antara 0.001 - 0.01 MON
+}
+
+async function getMonBalance(wallet) {
+  return await provider.getBalance(wallet.address);
 }
 
 async function startBotForAccount(account) {
+  const wallet = new ethers.Wallet(account.privateKey, provider);
+  const balance = await getMonBalance(wallet);
+
+  if (balance.lt(MIN_BALANCE_MON)) {
+    console.log(
+      `🛑 Akun ${wallet.address} saldo MON kurang dari 0.05, dilewati.`
+    );
+    return;
+  }
+
   async function executeTrade() {
-    const amount = getRandomAmount();
-    const bot = new UniswapBot({
-      amount: amount,
-      privateKey: account.privateKey,
-    });
+    if (
+      bots.every(
+        (Bot) =>
+          transactionCount[account.privateKey][Bot.name] >=
+          transactionCount[account.privateKey].maxTx
+      )
+    ) {
+      console.log(`🛑 Akun ${wallet.address} mencapai batas transaksi.`);
+      return;
+    }
+
+    const amount = ethers.utils.parseEther(getRandomAmount());
+    const availableBots = bots.filter(
+      (Bot) =>
+        transactionCount[account.privateKey][Bot.name] <
+        transactionCount[account.privateKey].maxTx
+    );
+    const Bot = availableBots[Math.floor(Math.random() * availableBots.length)];
 
     console.log(
-      `💰 Trading ${amount} ETH untuk akun ${account.privateKey.slice(-6)}`
+      `💰 Menjalankan ${Bot.name} untuk ${
+        wallet.address
+      } dengan ${ethers.utils.formatEther(amount)} MON`
     );
-
-    await bot.run();
+    await new Bot({
+      amount: getRandomAmount(),
+      privateKey: account.privateKey,
+    }).run();
+    transactionCount[account.privateKey][Bot.name]++;
 
     const delay =
-      Math.floor(
-        Math.random() * (account.intervalMax - account.intervalMin) +
-          account.intervalMin
-      ) *
+      (Math.random() * (account.intervalMax - account.intervalMin) +
+        account.intervalMin) *
       60 *
       1000;
     console.log(
-      `🕒 Akun ${account.privateKey.slice(-6)} akan trading lagi dalam ${
+      `🕒 Akun ${wallet.address} akan menjalankan bot lagi dalam ${
         delay / 60000
-      } menit\n`
+      } menit`
     );
-
     setTimeout(executeTrade, delay);
   }
 
-  return executeTrade();
+  executeTrade();
 }
 
 async function startSequentially() {
   for (const account of config.accounts) {
     await startBotForAccount(account);
     console.log("⏳ Menunggu 5 detik sebelum akun berikutnya...");
-    await new Promise((resolve) => setTimeout(resolve, 5000)); // Jeda 5 detik sebelum akun berikutnya
+    await new Promise((resolve) => setTimeout(resolve, 5000));
   }
 }
 
