@@ -3,7 +3,6 @@ const { ethers } = require("ethers");
 const UniswapBot = require("./src/routers/uniswap");
 const AprioriBot = require("./src/routers/apriori");
 const RubicBot = require("./src/routers/rubic");
-const MonorailBot = require("./src/routers/monorail");
 
 const config = JSON.parse(fs.readFileSync("config.json", "utf-8"));
 const bots = [UniswapBot, AprioriBot, RubicBot];
@@ -69,27 +68,41 @@ async function startBotForAccount(account) {
     }).run();
     transactionCount[account.privateKey][Bot.name]++;
 
+    // Menghitung delay random berdasarkan interval akun
     const delay =
       (Math.random() * (account.intervalMax - account.intervalMin) +
         account.intervalMin) *
       60 *
       1000;
     console.log(
-      `🕒 Akun ${wallet.address} akan menjalankan bot lagi dalam ${
+      `🕒 Akun ${wallet.address} akan menjalankan bot lagi dalam ${(
         delay / 60000
-      } menit`
+      ).toFixed(2)} menit`
     );
-    setTimeout(executeTrade, delay);
+
+    return new Promise((resolve) => setTimeout(resolve, delay));
   }
 
-  executeTrade();
+  await executeTrade();
 }
 
 async function startSequentially() {
   for (const account of config.accounts) {
     await startBotForAccount(account);
-    console.log("⏳ Menunggu 5 detik sebelum akun berikutnya...");
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    // Ambil delay random dari interval akun sebelum lanjut ke akun berikutnya
+    const nextDelay =
+      (Math.random() * (account.intervalMax - account.intervalMin) +
+        account.intervalMin) *
+      60 *
+      1000;
+    console.log(
+      `⏳ Menunggu ${(nextDelay / 60000).toFixed(
+        2
+      )} menit sebelum akun berikutnya...`
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, nextDelay));
   }
 }
 
