@@ -3,9 +3,10 @@ const { ethers } = require("ethers");
 const UniswapBot = require("./src/routers/uniswap");
 const AprioriBot = require("./src/routers/apriori");
 const RubicBot = require("./src/routers/rubic");
+const IzumiBot = require("./src/routers/izumi");
 
 const config = JSON.parse(fs.readFileSync("config.json", "utf-8"));
-const bots = [UniswapBot, AprioriBot, RubicBot];
+const bots = [UniswapBot, AprioriBot, RubicBot, IzumiBot];
 const MIN_BALANCE_MON = ethers.utils.parseEther("0.05");
 const RPC_URL = "https://testnet-rpc.monorail.xyz";
 const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
