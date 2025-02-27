@@ -70,15 +70,11 @@ async function startBotForAccount(account) {
     transactionCount[account.privateKey][Bot.name]++;
 
     // Menghitung delay random berdasarkan interval akun
-    const delay =
-      (Math.random() * (account.intervalMax - account.intervalMin) +
-        account.intervalMin) *
-      60 *
-      1000;
+    const delay = 5000; // 5 detik
     console.log(
-      `🕒 Akun ${wallet.address} akan menjalankan bot lagi dalam ${(
-        delay / 60000
-      ).toFixed(2)} menit`
+      `🕒 Akun ${wallet.address} Selesai. Countdown akan berjalan dalam ${(
+        delay / 1000
+      ).toFixed(2)} detik`
     );
 
     return new Promise((resolve) => setTimeout(resolve, delay));
